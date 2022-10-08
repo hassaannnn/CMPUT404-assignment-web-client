@@ -41,13 +41,20 @@ class HTTPClient(object):
         return None
 
     def get_code(self, data):
-        return None
+        dataCont  = (data.split("\r\n"))[0].split(" ")
+        code = int(dataCont[1])
+        #print("code is ", code)
+        return code
 
     def get_headers(self,data):
-        return None
+        #print("data is ", data)
+        return data.split("\r\n\r\n")[0]
+        
 
     def get_body(self, data):
-        return None
+        #print("data is ", data.split("\r\n\r\n")[1])
+        return data.split("\r\n\r\n")[1]
+        #return None
     
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -70,11 +77,66 @@ class HTTPClient(object):
     def GET(self, url, args=None):
         code = 500
         body = ""
+
+        # parse the url
+        #parseing url using allowed library
+        urlParse = urllib.parse.urlparse(url)
+        if(urlParse.port == None):
+            port = 80
+        else:
+            port = urlParse.port
+        
+        urlHost = urlParse.hostname
+        urlPath = urlParse.path
+        #print(len(urlPath))
+        if(len(urlPath) == 0 or urlPath == None):
+            urlPath = "/"
+
+        self.connect(urlHost, port)
+        # Create response
+        request = ("GET {} HTTP/1.1\r\n"+"Host: {}\r\n"+"Connection: close\r\n\r\n").format(urlPath, urlHost)
+        self.sendall(request)
+        response = self.recvall(self.socket)
+        code = self.get_code(response)
+        body = self.get_body(response)
+        self.close()
         return HTTPResponse(code, body)
 
     def POST(self, url, args=None):
         code = 500
         body = ""
+
+        # parse the url
+        #parseing url using allowed library
+        urlParse = urllib.parse.urlparse(url)
+        if(urlParse.port == None):
+            port = 80
+        else:
+            port = urlParse.port
+        
+        urlHost = urlParse.hostname
+        urlPath = urlParse.path
+        #print(len(urlPath))
+        if(len(urlPath) == 0 or urlPath == None):
+            urlPath = "/"
+        #hadnle args
+        if(args == None):
+            decodedArgs = ""
+        else:
+            decodedArgs = '&'
+            for key,values in args.items():
+                decodedArgs += key + "=" + values + "&"
+            
+        userAgent = 'User-Agent: PythonHTTPClient\r\n'
+        #print("args is: ",decodedArgs)
+        self.connect(urlHost, port)
+        # Create response
+        request = "POST {} HTTP/1.1\r\nHost: {}\r\nAccept: */*\r\n{}Content-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}".format(urlPath, urlHost,userAgent, len(decodedArgs), decodedArgs)
+        self.sendall(request)
+        response = self.recvall(self.socket)
+        code = self.get_code(response)
+        body = self.get_body(response)
+        self.close()
         return HTTPResponse(code, body)
 
     def command(self, url, command="GET", args=None):
